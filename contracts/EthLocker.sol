@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.4.22 <0.9.0;
 
 contract EthLocker {
@@ -7,16 +7,18 @@ contract EthLocker {
 
     address public dispatcherAddr;
     uint16 public reserveRatio;
-    uint16 public dividendRatio;
+    uint16 public rewardsRatio;
     address[] public inUseStrategyAddrList;
     uint256 public lockedEth;
 
     constructor() public {}
 
     // Fundamental
+    function setDispatcher(address targetAddress) public {}
+
     function lockEth(uint256 amount, string memory accountId) public {}
 
-    function unlockToken(bytes memory proofData, uint64 proofBlockHeight) public {}
+    function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {}
 
     function burnResult(bytes memory proofData, uint64 proofBlockHeight) public view returns (address) {}
 
@@ -33,7 +35,7 @@ contract EthLocker {
     function withdrawAllFromStrategy(address strategyAddr, uint256 amount) public {}
 
     // Rewards
-    function setDividendRatio(uint16 ratio) public {}
+    function setRewardsRatio(uint16 ratio) public {}
 
-    function transferDividend(address strategyAddr) public {}
+    function transferRewards(address strategyAddr) public {}
 }

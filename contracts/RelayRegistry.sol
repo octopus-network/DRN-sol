@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.4.22 <0.9.0;
 
 contract RelayRegistry {
@@ -10,18 +10,22 @@ contract RelayRegistry {
 
     address public dispatcherAddr;
 
-    uint256 public vaultBalance;
     uint256 public stakingAmount;
     address[32] public waitingList;
     address[7] public relayerList;
+    uint16 public rewardsRatio;
 
     mapping(address => bool) isRelayer;
     mapping(address => bool) isWaiting;
     mapping(address => uint256) public balanceOf;
 
-    constructor() public {}
+    constructor(uint16 defaultRewardsRatio) public {
+        rewardsRatio = defaultRewardsRatio;
+    }
 
     function register() public payable {}
+
+    function setDispatcher(address targetAddress) public {}
 
     function activate() public {}
 
@@ -34,4 +38,6 @@ contract RelayRegistry {
     function withdrawAll() public {}
 
     function distributeRewards() public {}
+
+    function setDistributionRatio() public {}
 }

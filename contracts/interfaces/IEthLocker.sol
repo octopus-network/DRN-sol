@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.4.22 <0.9.0;
 
 interface IEthLocker {
     function lockEth(uint256 amount, string memory accountId) external;
 
-    function unlockToken(bytes memory proofData, uint64 proofBlockHeight) external;
+    function unlockEth(bytes memory proofData, uint64 proofBlockHeight) external;
 
     function burnResult(bytes memory proofData, uint64 proofBlockHeight) external view returns (address);
 
@@ -21,7 +21,7 @@ interface IEthLocker {
     function withdrawAllFromStrategy(address strategyAddr, uint256 amount) external;
 
     // Rewards
-    function setDividendRatio(uint16 ratio) external;
+    function setRewardsRatio(uint16 ratio) external;
 
-    function transferDividend(address strategyAddr) external;
+    function transferRewards(address strategyAddr) external;
 }
