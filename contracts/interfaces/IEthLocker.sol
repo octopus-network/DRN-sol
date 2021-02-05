@@ -23,5 +23,5 @@ interface IEthLocker {
     // Rewards
     function setRewardsRatio(uint16 ratio) external;
 
-    function transferRewards(address strategyAddr) external;
+    function transferRewards(address relayRegistryAddr) external;
 }
