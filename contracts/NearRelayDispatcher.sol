@@ -62,8 +62,10 @@ contract NearRelayDispatcher {
 
     function relayLightClientBlock(bytes calldata data) public {
         INearBridge nearBridge = INearBridge(nearBridgeAddr);
-        Borsh.Data memory borsh = Borsh.from(data);
-        bytes32 hash = borsh.peekSha256(208);
+        Borsh.Data memory borshData = Borsh.from(data);
+        // Skip 2 bytes32 params.
+        borshData.offset += 64;
+        bytes32 hash = borshData.peekSha256(208);
         uint256 commitHeight = commitHeightByNearHash[hash];
         if (commitHeight == 0) {
             if (nearBridge.addLightClientBlock(data)) {
@@ -90,6 +92,7 @@ contract NearRelayDispatcher {
         emit RewardsClaimed();
     }
 
+    // TODO
     function relayCommandFromDao(bytes calldata data) public shouldRefundGasFee {}
 
     // It doesn't need to use SafeMath here.

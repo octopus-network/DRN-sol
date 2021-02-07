@@ -22,6 +22,11 @@ contract EthLocker {
     address[] public inUseStrategyAddrList;
     mapping(address => uint256) strategyBalanceMap;
 
+    struct BurnResult {
+        uint128 amount;
+        address recipient;
+    }
+
     constructor(uint16 defaultReserveRatio, uint16 defaultRewardsRatio) public {
         reserveRatio = defaultReserveRatio;
         rewardsRatio = defaultRewardsRatio;
@@ -47,6 +52,17 @@ contract EthLocker {
         return address(this).balance.sub(reserve());
     }
 
+    function avaliableRewards() public view returns (uint256) {
+        uint256 harvestableProfits;
+        for (uint256 i = 0; i < inUseStrategyAddrList.length; i++) {
+            uint256 availableProfit = IInvestmentStrategy(inUseStrategyAddrList[i]).availableProfit();
+            if (availableProfit >= minHarvest) {
+                harvestableProfits = harvestableProfits.add(availableProfit);
+            }
+        }
+        return harvestableProfits.mul(rewardsRatio);
+    }
+
     function balanceFromStrategy(address strategyAddr) public view returns (uint256) {
         return IInvestmentStrategy(strategyAddr).balance();
     }
@@ -63,8 +79,11 @@ contract EthLocker {
         return address(this).balance.add(balanceFromAllStrategies());
     }
 
-    function lockEth(uint256 amount, string memory accountId) public {}
+    function lockEth(address ethToken, string memory accountId) public payable {
+        emit Locked(msg.sender, msg.value, accountId);
+    }
 
+    // TODO
     function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {}
 
     function burnResult(bytes memory proofData, uint64 proofBlockHeight) public view returns (address) {}
@@ -102,8 +121,7 @@ contract EthLocker {
 
     function transferRewards(address relayRegistryAddr) public onlyDispatcher {
         harvestAll();
-        // avaliableRewards = ?
-        // IRelayRegistry(relayRegistryAddr).deposit{value: avaliableRewards}();
+        IRelayRegistry(relayRegistryAddr).deposit{value: avaliableRewards()}();
     }
 
     function harvest(address strategyAddr) public onlyDispatcher {
