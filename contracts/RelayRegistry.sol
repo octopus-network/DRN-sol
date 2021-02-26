@@ -122,6 +122,10 @@ contract RelayRegistry {
         rewardsRatio = value;
     }
 
+    function setFreezingPeriod(uint256 value) public onlyDispatcher {
+        freezingPeriod = value;
+    }
+
     function distributeRewards() public onlyDispatcher {
         INearRelayDispatcher dispatcher = INearRelayDispatcher(dispatcherAddr);
         uint256 totalRewards = address(this).balance.mul(rewardsRatio);

@@ -4,8 +4,10 @@ pragma solidity >=0.4.22 <0.9.0;
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import {IRelayRegistry} from './interfaces/IRelayRegistry.sol';
 import {IInvestmentStrategy} from './interfaces/IInvestmentStrategy.sol';
+import 'rainbow-bridge-sol/nearbridge/contracts/Borsh.sol';
+import './Locker.sol';
 
-contract EthLocker {
+contract EthLocker is Locker {
     using SafeMath for uint256;
 
     event Locked(address indexed sender, uint256 amount, string accountId);
@@ -83,10 +85,19 @@ contract EthLocker {
         emit Locked(msg.sender, msg.value, accountId);
     }
 
-    // TODO
-    function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {}
+    // Return address(0) in order to be unified with burnResult in erc20Locker
+    function burnResult(bytes memory proofData, uint64 proofBlockHeight) public view returns (address) {
+        ProofDecoder.ExecutionStatus memory status = _parseProof(proofData, proofBlockHeight);
+        BurnResult memory result = _decodeBurnResult(status.successValue);
+        return address(0);
+    }
 
-    function burnResult(bytes memory proofData, uint64 proofBlockHeight) public view returns (address) {}
+    function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {
+        ProofDecoder.ExecutionStatus memory status = _parseProof(proofData, proofBlockHeight);
+        BurnResult memory result = _decodeBurnResult(status.successValue);
+        result.recipient.transfer(result.amount);
+        emit Unlocked(result.amount, result.recipient);
+    }
 
     // In case of loss
     function deposit() public payable {}
@@ -110,9 +121,13 @@ contract EthLocker {
         if (avaliableAmount > 0) depositToStrategy(strategyAddr, avaliableAmount);
     }
 
-    function withdrawFromStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {}
+    function withdrawFromStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {
+        IInvestmentStrategy(strategyAddr).withdraw(amount);
+    }
 
-    function withdrawAllFromStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {}
+    function withdrawAllFromStrategy(address strategyAddr) public onlyDispatcher {
+        IInvestmentStrategy(strategyAddr).withdrawAll();
+    }
 
     // Rewards
     function setRewardsRatio(uint16 ratio) public onlyDispatcher {
@@ -120,8 +135,9 @@ contract EthLocker {
     }
 
     function transferRewards(address relayRegistryAddr) public onlyDispatcher {
+        uint256 rewards = avaliableRewards();
         harvestAll();
-        IRelayRegistry(relayRegistryAddr).deposit{value: avaliableRewards()}();
+        IRelayRegistry(relayRegistryAddr).deposit{value: rewards}();
     }
 
     function harvest(address strategyAddr) public onlyDispatcher {
@@ -139,5 +155,14 @@ contract EthLocker {
 
     fallback() external payable {
         revert();
+    }
+
+    function _decodeBurnResult(bytes memory data) internal pure returns (BurnResult memory result) {
+        Borsh.Data memory borshData = Borsh.from(data);
+        uint8 flag = borshData.decodeU8();
+        require(flag == 0, 'ERR_NOT_WITHDRAW_RESULT');
+        result.amount = borshData.decodeU128();
+        bytes20 recipient = borshData.decodeBytes20();
+        result.recipient = address(uint160(recipient));
     }
 }

@@ -15,4 +15,10 @@ interface IRelayRegistry {
     function withdrawAll() external;
 
     function distributeRewards() external;
+
+    function setDispatcher(address targetAddr) external;
+
+    function setRewardsRatio(uint16 value) external;
+
+    function setFreezingPeriod(uint256 value) external;
 }

@@ -2,6 +2,8 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 interface IEthLocker {
+    function setDispatcher(address targetAddr) external;
+
     function lockEth(uint256 amount, string memory accountId) external;
 
     function unlockEth(bytes memory proofData, uint64 proofBlockHeight) external;
