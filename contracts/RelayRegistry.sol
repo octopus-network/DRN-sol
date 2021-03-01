@@ -144,13 +144,13 @@ contract RelayRegistry {
         }
     }
 
+    function refundGasFee(address payable sender, uint256 amount) public onlyDispatcher {
+        sender.transfer(amount);
+    }
+
     function _slash(address targetAddr) private {
         frozenHeightOf[targetAddr] = 0;
         emit Slashed(targetAddr);
-    }
-
-    function refundGasFee(address payable sender, uint256 amount) public onlyDispatcher {
-        sender.transfer(amount);
     }
 
     function _addRelayer(address tragetAddr) private {
@@ -175,9 +175,5 @@ contract RelayRegistry {
         candidateList.removeByFind(tragetAddr);
         isCandidate[tragetAddr] = false;
         emit DeListed(tragetAddr, 1);
-    }
-
-    fallback() external payable {
-        revert();
     }
 }

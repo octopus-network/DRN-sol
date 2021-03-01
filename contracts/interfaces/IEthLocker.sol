@@ -16,14 +16,22 @@ interface IEthLocker {
     // For investments
     function setReserveRatio(uint16 ratio) external;
 
+    function setMinHarvest(uint16 ratio) external;
+
     function depositToStrategy(address strategyAddr, uint256 amount) external;
+
+    function depositAllToStrategy(address strategyAddr) external;
 
     function withdrawFromStrategy(address strategyAddr, uint256 amount) external;
 
-    function withdrawAllFromStrategy(address strategyAddr, uint256 amount) external;
+    function withdrawAllFromStrategy(address strategyAddr) external;
 
     // Rewards
     function setRewardsRatio(uint16 ratio) external;
 
     function transferRewards(address relayRegistryAddr) external;
+
+    function harvest(address strategyAddr) external;
+
+    function harvestAll() external;
 }

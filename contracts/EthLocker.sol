@@ -26,7 +26,7 @@ contract EthLocker is Locker {
 
     struct BurnResult {
         uint128 amount;
-        address recipient;
+        address payable recipient;
     }
 
     constructor(uint16 defaultReserveRatio, uint16 defaultRewardsRatio) public {
@@ -85,15 +85,18 @@ contract EthLocker is Locker {
         emit Locked(msg.sender, msg.value, accountId);
     }
 
-    // Return address(0) in order to be unified with burnResult in erc20Locker
-    function burnResult(bytes memory proofData, uint64 proofBlockHeight) public view returns (address) {
-        ProofDecoder.ExecutionStatus memory status = _parseProof(proofData, proofBlockHeight);
+    function burnResult(bytes memory proofData, uint64 proofBlockHeight)
+        public
+        returns (uint128 amount, address recipient)
+    {
+        ProofDecoder.ExecutionStatus memory status = _viewProof(proofData, proofBlockHeight);
         BurnResult memory result = _decodeBurnResult(status.successValue);
-        return address(0);
+        amount = result.amount;
+        recipient = result.recipient;
     }
 
     function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {
-        ProofDecoder.ExecutionStatus memory status = _parseProof(proofData, proofBlockHeight);
+        ProofDecoder.ExecutionStatus memory status = _useProof(proofData, proofBlockHeight);
         BurnResult memory result = _decodeBurnResult(status.successValue);
         result.recipient.transfer(result.amount);
         emit Unlocked(result.amount, result.recipient);
@@ -151,10 +154,6 @@ contract EthLocker is Locker {
         for (uint256 i = 0; i < inUseStrategyAddrList.length; i++) {
             harvest(inUseStrategyAddrList[i]);
         }
-    }
-
-    fallback() external payable {
-        revert();
     }
 
     function _decodeBurnResult(bytes memory data) internal pure returns (BurnResult memory result) {

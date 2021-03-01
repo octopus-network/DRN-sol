@@ -16,6 +16,8 @@ interface IRelayRegistry {
 
     function distributeRewards() external;
 
+    function refundGasFee(address payable sender, uint256 amount) external;
+
     function setDispatcher(address targetAddr) external;
 
     function setRewardsRatio(uint16 value) external;

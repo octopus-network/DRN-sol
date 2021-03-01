@@ -7,7 +7,7 @@ import {IRelayRegistry} from './interfaces/IRelayRegistry.sol';
 import 'rainbow-bridge-sol/nearprover/contracts/INearProver.sol';
 import 'rainbow-bridge-sol/nearbridge/contracts/NearDecoder.sol';
 import 'rainbow-bridge-sol/nearbridge/contracts/Borsh.sol';
-import "rainbow-bridge-sol/nearprover/contracts/ProofDecoder.sol";
+import 'rainbow-bridge-sol/nearprover/contracts/ProofDecoder.sol';
 
 contract NearRelayDispatcher {
     using Borsh for Borsh.Data;
@@ -31,6 +31,7 @@ contract NearRelayDispatcher {
 
     mapping(bytes32 => uint256) public commitHeightByNearHash;
     mapping(address => uint32) public scoreOf;
+    mapping(bytes32 => bool) public usedEvents;
 
     struct Command {
         uint8 flag;
@@ -39,8 +40,8 @@ contract NearRelayDispatcher {
 
     constructor(
         INearProver defaultProver,
-        bytes calldata defaultNearRainbowDao
-        uint256 defaultClaimPeriod,
+        bytes memory defaultNearRainbowDao,
+        uint256 defaultClaimPeriod
     ) public {
         prover = defaultProver;
         nearRainbowDao = defaultNearRainbowDao;
@@ -58,7 +59,7 @@ contract NearRelayDispatcher {
         uint256 fee = gasUsed * reasonableGasPrice;
 
         IRelayRegistry relayRegistry = IRelayRegistry(relayRegistryAddr);
-        refundGasFee.refundGasFee(msg.sender, fee);
+        relayRegistry.refundGasFee(msg.sender, fee);
     }
 
     function setRelativeContracts(
@@ -111,13 +112,11 @@ contract NearRelayDispatcher {
 
     // TODO
     function relayCommandFromDao(bytes calldata data, uint64 proofBlockHeight) public shouldRefundGasFee {
-        Borsh.Data memory borshData = Borsh.from(data);
-        ProofDecoder.ExecutionStatus memory status = _parseProof(proofData, proofBlockHeight);
-
+        ProofDecoder.ExecutionStatus memory status = _useProof(data, proofBlockHeight);
         Borsh.Data memory borshResult = Borsh.from(status.successValue);
-        command = borshResult.decodeU8();
+        uint8 command = borshResult.decodeU8();
         require(command < 13 && command > 0, 'Command should be < 13 and > 0');
-        
+
         IEthLocker ethLocker = IEthLocker(ethLockerAddr);
         IRelayRegistry relayRegistry = IRelayRegistry(relayRegistryAddr);
 
@@ -136,13 +135,12 @@ contract NearRelayDispatcher {
         } else if (command == 6) {
             ethLocker.withdrawAllFromStrategy(_decodeAddress(borshResult));
         } else if (command == 7) {
-            ethLocker.setRewardsRatio(_borshResult.decodeU16());
+            ethLocker.setRewardsRatio(borshResult.decodeU16());
         } else if (command == 8) {
             ethLocker.harvest(_decodeAddress(borshResult));
         } else if (command == 9) {
             ethLocker.harvestAll();
         }
-
         // For Registry
         else if (command == 10) {
             relayRegistry.setRewardsRatio(borshResult.decodeU16());
@@ -162,7 +160,7 @@ contract NearRelayDispatcher {
         emit RelayLog(hash, targetAddr, score);
     }
 
-    function _parseProof(bytes memory proofData, uint64 proofBlockHeight)
+    function _useProof(bytes memory proofData, uint64 proofBlockHeight)
         internal
         returns (ProofDecoder.ExecutionStatus memory result)
     {
@@ -174,12 +172,11 @@ contract NearRelayDispatcher {
         require(borshData.finished(), 'Argument should be exact borsh serialization');
 
         bytes32 receiptId = fullOutcomeProof.outcome_proof.outcome_with_id.outcome.receipt_ids[0];
-        require(!usedEvents_[receiptId], 'The command event cannot be reused');
-        usedEvents_[receiptId] = true;
+        require(!usedEvents[receiptId], 'The command event cannot be reused');
+        usedEvents[receiptId] = true;
 
         require(
-            keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id) ==
-                keccak256(nearRainbowDao),
+            keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id) == keccak256(nearRainbowDao),
             'Can only execute commands from the linked RainbowDao from near blockchain.'
         );
 
@@ -188,9 +185,8 @@ contract NearRelayDispatcher {
         require(!result.unknown, 'Cannot use unknown execution outcome for executing the commands.');
     }
 
-    function _decodeAddress(Borsh.Data memory data) internal pure returns(address) {
+    function _decodeAddress(Borsh.Data memory data) internal pure returns (address) {
         bytes20 addressData = data.decodeBytes20();
         return address(uint160(addressData));
     }
-
 }
