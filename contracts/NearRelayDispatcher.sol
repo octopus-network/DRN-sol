@@ -14,24 +14,28 @@ contract NearRelayDispatcher {
     using NearDecoder for Borsh.Data;
     using ProofDecoder for Borsh.Data;
 
-    event RelayLog(bytes32 indexed hash, address relayer, uint32 score);
+    event RelayLog(bytes32 indexed hash, uint64 height, address relayer, uint64 score);
     event RewardsClaimed();
 
     INearProver public prover;
     bytes public nearRainbowDao;
 
-    address public nearBridgeAddr;
-    address public ethLockerAddr;
-    address public relayRegistryAddr;
+    INearBridge public nearBridge;
+    IEthLocker public ethLocker;
+    IRelayRegistry public relayRegistry;
 
-    uint32 totalScore;
+    uint64 totalScore;
     uint256 lastClaimAt;
     uint256 public claimPeriod;
-    uint256 public reasonableGasPrice;
+    uint256 public fairGasPrice;
 
-    mapping(bytes32 => uint256) public commitHeightByNearHash;
-    mapping(address => uint32) public scoreOf;
+    mapping(bytes32 => uint256) public commitAtByNearHash;
+    mapping(address => uint64) public scoreOf;
     mapping(bytes32 => bool) public usedEvents;
+
+    uint64 HIGH_SCORE = 50000;
+    uint64 MEDIUM_SCORE = 40000;
+    uint64 LOW_SCORE = 20000;
 
     struct Command {
         uint8 flag;
@@ -56,56 +60,53 @@ contract NearRelayDispatcher {
         uint256 basicCostGas = 50000;
         uint256 gasUsed = gasleft() - gasLeftAtStart + basicCostGas;
         // Don't use tx.gasPrice, the gas price must be reasonable.
-        uint256 fee = gasUsed * reasonableGasPrice;
+        uint256 fee = gasUsed * fairGasPrice;
 
-        IRelayRegistry relayRegistry = IRelayRegistry(relayRegistryAddr);
         relayRegistry.refundGasFee(msg.sender, fee);
     }
 
-    function setRelativeContracts(
-        address nearBridge,
-        address ethLocker,
-        address relayRegistry
+    function initRelativeContracts(
+        INearBridge _nearBridge,
+        IEthLocker _ethLocker,
+        IRelayRegistry _relayRegistry
     ) public {
-        if (nearBridgeAddr == address(0)) {
-            nearBridgeAddr = nearBridge;
+        if (nearBridge == INearBridge(0)) {
+            nearBridge = _nearBridge;
         }
-        if (nearBridgeAddr == address(0)) {
-            ethLockerAddr = ethLocker;
+        if (ethLocker == IEthLocker(0)) {
+            ethLocker = _ethLocker;
         }
-        if (nearBridgeAddr == address(0)) {
-            relayRegistryAddr = relayRegistry;
+        if (relayRegistry == IRelayRegistry(0)) {
+            relayRegistry = _relayRegistry;
         }
     }
 
-    function relayLightClientBlock(bytes calldata data) public {
-        INearBridge nearBridge = INearBridge(nearBridgeAddr);
+    function relayLightClientBlock(bytes memory data) public {
         Borsh.Data memory borshData = Borsh.from(data);
         // Skip 2 bytes32 params.
         borshData.offset += 64;
         bytes32 hash = borshData.peekSha256(208);
-        uint256 commitHeight = commitHeightByNearHash[hash];
-        if (commitHeight == 0) {
+        uint64 height = borshData.decodeU64();
+        uint256 commitAt = commitAtByNearHash[hash];
+        if (commitAt == 0) {
             if (nearBridge.addLightClientBlock(data)) {
-                commitHeightByNearHash[hash] = block.number;
-                _addScore(hash, msg.sender, 50000);
+                commitAtByNearHash[hash] = block.number;
+                _addScore(hash, height, msg.sender, HIGH_SCORE);
             }
-        } else if (commitHeight < 5) {
-            _addScore(hash, msg.sender, 40000);
-            // Every 2000 blocks there is a chance to update reasonableGasPrice
+        } else if (commitAt < 5) {
+            _addScore(hash, height, msg.sender, MEDIUM_SCORE);
+            // Every 2000 blocks there is a chance to update fairGasPrice
             if (block.number % 2000 < 10) {
-                reasonableGasPrice = tx.gasprice;
+                fairGasPrice = tx.gasprice;
             }
-        } else if (commitHeight < 30) {
-            _addScore(hash, msg.sender, 20000);
+        } else if (commitAt < 30) {
+            _addScore(hash, height, msg.sender, LOW_SCORE);
         }
     }
 
     function claimRewards() public shouldRefundGasFee {
         require(block.number - lastClaimAt > claimPeriod, 'Should wait');
-        IEthLocker ethLocker = IEthLocker(ethLockerAddr);
-        IRelayRegistry relayRegistry = IRelayRegistry(relayRegistryAddr);
-        ethLocker.transferRewards(relayRegistryAddr);
+        ethLocker.transferRewards(address(relayRegistry));
         relayRegistry.distributeRewards();
         emit RewardsClaimed();
     }
@@ -116,9 +117,6 @@ contract NearRelayDispatcher {
         Borsh.Data memory borshResult = Borsh.from(status.successValue);
         uint8 command = borshResult.decodeU8();
         require(command < 13 && command > 0, 'Command should be < 13 and > 0');
-
-        IEthLocker ethLocker = IEthLocker(ethLockerAddr);
-        IRelayRegistry relayRegistry = IRelayRegistry(relayRegistryAddr);
 
         // Start from 1 not 0, since the default uint is 0.
         // For Locker
@@ -152,12 +150,14 @@ contract NearRelayDispatcher {
     // It doesn't need to use SafeMath here.
     function _addScore(
         bytes32 hash,
+        uint64 height,
         address targetAddr,
-        uint32 score
+        uint64 score
     ) private {
+        require(relayRegistry.isRelayer(targetAddr), 'Must be a relayer.');
         scoreOf[targetAddr] += score;
         totalScore += score;
-        emit RelayLog(hash, targetAddr, score);
+        emit RelayLog(hash, height, targetAddr, score);
     }
 
     function _useProof(bytes memory proofData, uint64 proofBlockHeight)
