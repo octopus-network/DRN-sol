@@ -9,55 +9,56 @@ contract RelayRegistry {
     using SafeMath for uint256;
     using ArrayUtils for address[];
 
-    // type 0 means relayer list, type 1 means candidate list.
-    event Listed(address indexed relayer, uint8 listType);
-    event DeListed(address indexed relayer, uint8 listType);
+    // type 1 means relayer list, type 2 means candidate list.
+    event Listed(address indexed relayer, uint8 role);
+    event DeListed(address indexed relayer, uint8 role);
     event Slashed(address indexed relayer);
 
     address public dispatcherAddr;
-
     uint256 public stakingRequired;
     uint256 public freezingPeriod;
     address[] public relayerList;
     uint256 public relayerNumLimit;
-    address[] public candidateList;
-    uint256 public candidateNumLimit;
     // 10000 for 100.00%
     uint16 public rewardsRatio;
     uint16 public minScoreRatio;
 
-    mapping(address => bool) isRelayer;
-    mapping(address => bool) isCandidate;
+    mapping(address => uint8) roleMap;
     mapping(address => uint256) public balanceOf;
     mapping(address => uint256) public frozenHeightOf;
 
+    uint8 ROLE_RELAYER = 1;
+    uint8 ROLE_CANDIDATE = 2;
+
     constructor(
+        uint256 defaultRelayerNumLimit,
         uint256 defaultFreezingPeriod,
         uint16 defaultRewardsRatio,
         uint16 defaultMinScoreRatio
     ) public {
+        relayerNumLimit = defaultRelayerNumLimit;
         freezingPeriod = defaultFreezingPeriod;
         rewardsRatio = defaultRewardsRatio;
         minScoreRatio = defaultMinScoreRatio;
     }
 
     modifier onlyRegistered {
-        require(isRelayer[msg.sender] || isCandidate[msg.sender], 'not registered');
+        require(roleMap[msg.sender] > 0, 'not registered');
         _;
     }
 
     modifier onlyNewUser {
-        require(isRelayer[msg.sender] && isCandidate[msg.sender], 'Already registered');
+        require(roleMap[msg.sender] == 0, 'Already registered');
         _;
     }
 
     modifier onlyRelayer {
-        require(isRelayer[msg.sender] && !isCandidate[msg.sender], 'Not a relayer');
+        require(roleMap[msg.sender] == ROLE_RELAYER, 'Not a relayer');
         _;
     }
 
     modifier onlyCandidate {
-        require(isCandidate[msg.sender] && !isRelayer[msg.sender], 'Not a candidate');
+        require(roleMap[msg.sender] == ROLE_CANDIDATE, 'Not a candidate');
         _;
     }
 
@@ -76,28 +77,24 @@ contract RelayRegistry {
 
     function register() public payable onlyNewUser {
         require(msg.value == stakingRequired, 'staking amount not correct');
-        if (relayerList.length < relayerNumLimit) {
-            _addRelayer(msg.sender);
-        } else {
-            require(candidateList.length < candidateNumLimit, 'Candidate list full');
+        if (!_addRelayer(msg.sender)) {
             _addCandidate(msg.sender);
         }
     }
 
     function activate() public onlyCandidate {
         address _sender = msg.sender;
-        require(relayerList.length < relayerNumLimit, 'Relayer list full');
-        _addRelayer(_sender);
-        _removeCandidate(_sender);
+        require(_addRelayer(_sender), 'Relayer list full');
     }
 
     function quit() public onlyRegistered {
-        if (isRelayer[msg.sender]) {
+        if (roleMap[msg.sender] == ROLE_RELAYER) {
             frozenHeightOf[msg.sender] = block.number;
             _removeRelayer(msg.sender);
         } else {
+            // candidate
             balanceOf[msg.sender] = balanceOf[msg.sender].add(stakingRequired);
-            _removeCandidate(msg.sender);
+            _delist(msg.sender);
         }
     }
 
@@ -116,6 +113,10 @@ contract RelayRegistry {
 
     function withdrawAll() public payable {
         msg.sender.transfer(balanceOf[msg.sender]);
+    }
+
+    function setRelayerNumLimit(uint256 limit) public onlyDispatcher {
+        relayerNumLimit = limit;
     }
 
     function setRewardsRatio(uint16 value) public onlyDispatcher {
@@ -153,27 +154,29 @@ contract RelayRegistry {
         emit Slashed(targetAddr);
     }
 
-    function _addRelayer(address tragetAddr) private {
-        relayerList.push(tragetAddr);
-        isRelayer[tragetAddr] = true;
-        emit Listed(tragetAddr, 0);
+    function _addRelayer(address tragetAddr) private returns (bool) {
+        if (relayerList.length < relayerNumLimit) {
+            relayerList.push(tragetAddr);
+            roleMap[tragetAddr] = ROLE_RELAYER;
+            emit Listed(tragetAddr, ROLE_RELAYER);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     function _removeRelayer(address tragetAddr) private {
         relayerList.removeByFind(tragetAddr);
-        isRelayer[tragetAddr] = false;
-        emit DeListed(tragetAddr, 0);
+        _delist(tragetAddr);
     }
 
     function _addCandidate(address tragetAddr) private {
-        candidateList.push(tragetAddr);
-        isCandidate[tragetAddr] = true;
-        emit Listed(tragetAddr, 1);
+        roleMap[tragetAddr] = ROLE_CANDIDATE;
+        emit Listed(tragetAddr, ROLE_CANDIDATE);
     }
 
-    function _removeCandidate(address tragetAddr) private {
-        candidateList.removeByFind(tragetAddr);
-        isCandidate[tragetAddr] = false;
-        emit DeListed(tragetAddr, 1);
+    function _delist(address tragetAddr) private {
+        emit DeListed(tragetAddr, roleMap[tragetAddr]);
+        roleMap[tragetAddr] = 0;
     }
 }
