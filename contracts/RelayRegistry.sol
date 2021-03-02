@@ -31,11 +31,13 @@ contract RelayRegistry {
     uint8 ROLE_CANDIDATE = 2;
 
     constructor(
+        uint256 defaultStakingRequired,
         uint256 defaultRelayerNumLimit,
         uint256 defaultFreezingPeriod,
         uint16 defaultRewardsRatio,
         uint16 defaultMinScoreRatio
     ) public {
+        stakingRequired = defaultStakingRequired;
         relayerNumLimit = defaultRelayerNumLimit;
         freezingPeriod = defaultFreezingPeriod;
         rewardsRatio = defaultRewardsRatio;
@@ -115,8 +117,12 @@ contract RelayRegistry {
         msg.sender.transfer(balanceOf[msg.sender]);
     }
 
-    function setRelayerNumLimit(uint256 limit) public onlyDispatcher {
-        relayerNumLimit = limit;
+    function setStakingRequired(uint256 value) public onlyDispatcher {
+        stakingRequired = value;
+    }
+
+    function setRelayerNumLimit(uint256 value) public onlyDispatcher {
+        relayerNumLimit = value;
     }
 
     function setRewardsRatio(uint16 value) public onlyDispatcher {
