@@ -2,9 +2,11 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 interface IInvestmentStrategy {
-    function balance() external view returns (uint256);
+    function capital(address) external view returns (uint256);
 
-    function availableProfit() external view returns (uint256);
+    function availableProfit(address) external view returns (uint256);
+
+    function balance(address) external view returns (uint256);
 
     function deposit() external payable;
 

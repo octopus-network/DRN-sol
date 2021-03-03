@@ -4,10 +4,23 @@ pragma solidity >=0.4.22 <0.9.0;
 library ArrayUtils {
     function findIndex(address[] storage addrArray, address target) private view returns (uint256) {
         uint256 i = 0;
-        while (addrArray[i] != target && i < addrArray.length) {
-            i++;
+        if (addrArray.length > 0) {
+            while (addrArray[i] != target && i < addrArray.length) {
+                i++;
+            }
         }
         return i;
+    }
+
+    function include(address[] storage addrArray, address target) private view returns (bool) {
+        return findIndex(addrArray, target) != addrArray.length;
+    }
+
+    function pushByNotFound(address[] storage addrArray, address target) internal returns (address[] storage) {
+        if (!include(addrArray, target)) {
+            addrArray.push(target);
+        }
+        return addrArray;
     }
 
     function removeByIndex(address[] storage addrArray, uint256 index) internal returns (address[] storage) {

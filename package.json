@@ -25,7 +25,10 @@
   "homepage": "https://github.com/cdot-network/DRN-sol#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^3.3.0",
-    "rainbow-bridge-sol": "https://github.com/near/rainbow-bridge-sol"
+    "@openzeppelin/test-helpers": "^0.5.10",
+    "rainbow-bridge-lib": "^2.0.0",
+    "rainbow-bridge-sol": "https://github.com/near/rainbow-bridge-sol",
+    "truffle-assertions": "^0.9.2"
   },
   "devDependencies": {
     "ganache-cli": "^6.12.2",

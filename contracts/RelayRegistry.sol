@@ -55,18 +55,26 @@ contract RelayRegistry {
     }
 
     modifier onlyRelayer {
-        require(roleMap[msg.sender] == ROLE_RELAYER, 'Not a relayer');
+        require(isRelayer(msg.sender), 'Not a relayer');
         _;
     }
 
     modifier onlyCandidate {
-        require(roleMap[msg.sender] == ROLE_CANDIDATE, 'Not a candidate');
+        require(isCandidate(msg.sender), 'Not a candidate');
         _;
     }
 
     modifier onlyDispatcher {
         require(msg.sender == dispatcherAddr, 'Not dispatcher');
         _;
+    }
+
+    function isRelayer(address targetAddr) public view returns (bool) {
+        return roleMap[targetAddr] == ROLE_RELAYER;
+    }
+
+    function isCandidate(address targetAddr) public view returns (bool) {
+        return roleMap[targetAddr] == ROLE_CANDIDATE;
     }
 
     function setDispatcher(address targetAddr) public {

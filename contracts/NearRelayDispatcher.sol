@@ -37,11 +37,6 @@ contract NearRelayDispatcher {
     uint64 MEDIUM_SCORE = 40000;
     uint64 LOW_SCORE = 20000;
 
-    struct Command {
-        uint8 flag;
-        bytes paramsData;
-    }
-
     constructor(
         INearProver defaultProver,
         bytes memory defaultNearRainbowDao,

@@ -6,9 +6,11 @@ import {IRelayRegistry} from './interfaces/IRelayRegistry.sol';
 import {IInvestmentStrategy} from './interfaces/IInvestmentStrategy.sol';
 import 'rainbow-bridge-sol/nearbridge/contracts/Borsh.sol';
 import './Locker.sol';
+import './ArrayUtils.sol';
 
 contract EthLocker is Locker {
     using SafeMath for uint256;
+    using ArrayUtils for address[];
 
     event Locked(address indexed sender, uint256 amount, string accountId);
     event Unlocked(uint128 amount, address recipient);
@@ -22,16 +24,15 @@ contract EthLocker is Locker {
     uint16 public rewardsRatio;
 
     address[] public inUseStrategyAddrList;
-    mapping(address => uint256) strategyBalanceMap;
 
     struct BurnResult {
         uint128 amount;
         address payable recipient;
     }
 
-    constructor(uint16 defaultReserveRatio, uint16 defaultRewardsRatio) public {
-        reserveRatio = defaultReserveRatio;
-        rewardsRatio = defaultRewardsRatio;
+    constructor(uint16 _reserveRatio, uint16 _rewardsRatio) public {
+        reserveRatio = _reserveRatio;
+        rewardsRatio = _rewardsRatio;
     }
 
     modifier onlyDispatcher {
@@ -57,7 +58,7 @@ contract EthLocker is Locker {
     function avaliableRewards() public view returns (uint256) {
         uint256 harvestableProfits;
         for (uint256 i = 0; i < inUseStrategyAddrList.length; i++) {
-            uint256 availableProfit = IInvestmentStrategy(inUseStrategyAddrList[i]).availableProfit();
+            uint256 availableProfit = IInvestmentStrategy(inUseStrategyAddrList[i]).availableProfit(address(this));
             if (availableProfit >= minHarvest) {
                 harvestableProfits = harvestableProfits.add(availableProfit);
             }
@@ -66,7 +67,7 @@ contract EthLocker is Locker {
     }
 
     function balanceFromStrategy(address strategyAddr) public view returns (uint256) {
-        return IInvestmentStrategy(strategyAddr).balance();
+        return IInvestmentStrategy(strategyAddr).balance(address(this));
     }
 
     function balanceFromAllStrategies() public view returns (uint256) {
@@ -81,7 +82,8 @@ contract EthLocker is Locker {
         return address(this).balance.add(balanceFromAllStrategies());
     }
 
-    function lockEth(address ethToken, string memory accountId) public payable {
+    function lockEth(string memory accountId) public payable {
+        lockedEth = lockedEth.add(msg.value);
         emit Locked(msg.sender, msg.value, accountId);
     }
 
@@ -99,6 +101,8 @@ contract EthLocker is Locker {
         ProofDecoder.ExecutionStatus memory status = _useProof(proofData, proofBlockHeight);
         BurnResult memory result = _decodeBurnResult(status.successValue);
         result.recipient.transfer(result.amount);
+
+        lockedEth = lockedEth.sub(result.amount);
         emit Unlocked(result.amount, result.recipient);
     }
 
@@ -115,13 +119,16 @@ contract EthLocker is Locker {
     }
 
     function depositToStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {
-        require(amount > 0, 'insufficient avaliable balance');
+        require(amount <= avaliableBalance(), 'insufficient avaliable balance');
         IInvestmentStrategy(strategyAddr).deposit{value: amount}();
+        _addInUseStrategy(strategyAddr);
     }
 
     function depositAllToStrategy(address strategyAddr) public onlyDispatcher {
-        uint256 avaliableAmount = address(this).balance.sub(reserve());
-        if (avaliableAmount > 0) depositToStrategy(strategyAddr, avaliableAmount);
+        uint256 avaliableAmount = avaliableBalance();
+        require(avaliableAmount > 0, 'no avaliable amount');
+        depositToStrategy(strategyAddr, avaliableAmount);
+        _addInUseStrategy(strategyAddr);
     }
 
     function withdrawFromStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {
@@ -145,15 +152,27 @@ contract EthLocker is Locker {
 
     function harvest(address strategyAddr) public onlyDispatcher {
         IInvestmentStrategy strategy = IInvestmentStrategy(strategyAddr);
-        if (strategy.availableProfit() > minHarvest) {
+        if (strategy.availableProfit(address(this)) > minHarvest) {
             strategy.harvest();
         }
     }
 
     function harvestAll() public onlyDispatcher {
+        require(inUseStrategyAddrList.length > 0, 'inUseStrategyAddrList cannot be empty');
         for (uint256 i = 0; i < inUseStrategyAddrList.length; i++) {
             harvest(inUseStrategyAddrList[i]);
         }
+    }
+
+    // receive eth from strategy
+    receive() external payable {}
+
+    function _addInUseStrategy(address strategyAddr) internal {
+        inUseStrategyAddrList.pushByNotFound(strategyAddr);
+    }
+
+    function _removeInUseStrategy(address strategyAddr) internal {
+        inUseStrategyAddrList.removeByFind(strategyAddr);
     }
 
     function _decodeBurnResult(bytes memory data) internal pure returns (BurnResult memory result) {

@@ -2,6 +2,10 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 interface IRelayRegistry {
+    function isRelayer(address targetAddr) external view returns (bool);
+
+    function isCandidate(address targetAddr) external view returns (bool);
+
     function register() external payable;
 
     function activate() external;
