@@ -9,10 +9,11 @@ module.exports = async function (deployer, network, accounts) {
   //   const nearProverAddr = '0x...'
   //   const nearBridgeAddr = '0x...'
 
-  //   const lReserveRatio = 40 * 100; // 40%
-  //   const lRewardsRatio = 100 * 100; // 100%
-  //   await deployer.deploy(EthLocker, lReserveRatio, lRewardsRatio);
-  //   const ethLocker = await EthLocker.deployed();
+  // const lReserveRatio = 40 * 100; // 40%
+  // const lMinReserveRatio = 18 * 100; // 18%
+  // const lRewardsRatio = 100 * 100; // 100%
+  // await deployer.deploy(EthLocker, lReserveRatio, lRewardsRatio);
+  // const ethLocker = await EthLocker.deployed();
 
   // const rStakingRequired = toWei('5', 'ether');
   // const rRelayerNumLimit = 12; // 12 relayers

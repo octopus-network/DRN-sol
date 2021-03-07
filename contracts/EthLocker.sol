@@ -14,6 +14,7 @@ contract EthLocker is Locker {
 
     event Locked(address indexed sender, uint256 amount, string accountId);
     event Unlocked(uint128 amount, address recipient);
+    event DebtCreated(address indexed creditor, uint256 debt, uint256 totalDebt);
 
     address public dispatcherAddr;
 
@@ -21,17 +22,30 @@ contract EthLocker is Locker {
     uint256 public minHarvest;
     // 10000 for 100.00%
     uint16 public reserveRatio;
+    uint16 public minReserveRatio;
     uint16 public rewardsRatio;
 
     address[] public inUseStrategyAddrList;
+
+    uint256 totalDebt;
+    mapping(address => uint256) rightOfCreditor;
 
     struct BurnResult {
         uint128 amount;
         address payable recipient;
     }
 
-    constructor(uint16 _reserveRatio, uint16 _rewardsRatio) public {
+    constructor(
+        bytes memory _nearEthFactory,
+        INearProver _prover,
+        uint16 _reserveRatio,
+        uint16 _minReserveRatio,
+        uint16 _rewardsRatio
+    ) public {
+        nearEthFactory = _nearEthFactory;
+        prover = _prover;
         reserveRatio = _reserveRatio;
+        minReserveRatio = _minReserveRatio;
         rewardsRatio = _rewardsRatio;
     }
 
@@ -51,8 +65,18 @@ contract EthLocker is Locker {
         return lockedEth.mul(reserveRatio).div(10000);
     }
 
-    function avaliableBalance() public view returns (uint256) {
-        return address(this).balance.sub(reserve());
+    function minReserve() public view returns (uint256) {
+        return lockedEth.mul(minReserveRatio).div(10000);
+    }
+
+    function investableBalance() public view returns (uint256) {
+        uint256 _reserve = reserve();
+        return address(this).balance > _reserve ? address(this).balance.sub(_reserve) : 0;
+    }
+
+    function safeBalance() public returns (uint256) {
+        uint256 _minReserve = minReserve();
+        return address(this).balance > _minReserve ? address(this).balance.sub(_minReserve) : 0;
     }
 
     function avaliableRewards() public view returns (uint256) {
@@ -100,10 +124,27 @@ contract EthLocker is Locker {
     function unlockEth(bytes memory proofData, uint64 proofBlockHeight) public {
         ProofDecoder.ExecutionStatus memory status = _useProof(proofData, proofBlockHeight);
         BurnResult memory result = _decodeBurnResult(status.successValue);
-        result.recipient.transfer(result.amount);
 
         lockedEth = lockedEth.sub(result.amount);
+        uint256 _safeBalance = safeBalance();
+        if (result.amount > _safeBalance) {
+            result.recipient.transfer(_safeBalance);
+            uint256 debt = uint256(result.amount).sub(_safeBalance);
+            totalDebt = totalDebt.add(debt);
+            rightOfCreditor[result.recipient] = rightOfCreditor[result.recipient].add(debt);
+            emit DebtCreated(result.recipient, debt, totalDebt);
+        } else {
+            result.recipient.transfer(result.amount);
+        }
         emit Unlocked(result.amount, result.recipient);
+    }
+
+    function claim(uint256 amount) public {
+        require(amount <= rightOfCreditor[msg.sender], 'Claim amount over right.');
+        require(amount <= safeBalance(), 'Insuffcient balance.');
+        msg.sender.transfer(amount);
+        rightOfCreditor[msg.sender] = rightOfCreditor[msg.sender].sub(amount);
+        totalDebt = totalDebt.sub(amount);
     }
 
     // In case of loss
@@ -114,18 +155,22 @@ contract EthLocker is Locker {
         reserveRatio = ratio;
     }
 
+    function setMinReserveRatio(uint16 ratio) public onlyDispatcher {
+        minReserveRatio = ratio;
+    }
+
     function setMinHarvest(uint16 ratio) public onlyDispatcher {
         minHarvest = ratio;
     }
 
     function depositToStrategy(address strategyAddr, uint256 amount) public onlyDispatcher {
-        require(amount <= avaliableBalance(), 'insufficient avaliable balance');
+        require(amount <= investableBalance(), 'insufficient avaliable balance');
         IInvestmentStrategy(strategyAddr).deposit{value: amount}();
         _addInUseStrategy(strategyAddr);
     }
 
     function depositAllToStrategy(address strategyAddr) public onlyDispatcher {
-        uint256 avaliableAmount = avaliableBalance();
+        uint256 avaliableAmount = investableBalance();
         require(avaliableAmount > 0, 'no avaliable amount');
         depositToStrategy(strategyAddr, avaliableAmount);
         _addInUseStrategy(strategyAddr);
@@ -177,8 +222,6 @@ contract EthLocker is Locker {
 
     function _decodeBurnResult(bytes memory data) internal pure returns (BurnResult memory result) {
         Borsh.Data memory borshData = Borsh.from(data);
-        uint8 flag = borshData.decodeU8();
-        require(flag == 0, 'ERR_NOT_WITHDRAW_RESULT');
         result.amount = borshData.decodeU128();
         bytes20 recipient = borshData.decodeBytes20();
         result.recipient = address(uint160(recipient));

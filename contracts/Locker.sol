@@ -11,8 +11,8 @@ contract Locker {
     using ProofDecoder for Borsh.Data;
     using NearDecoder for Borsh.Data;
 
-    INearProver public prover_;
-    bytes public nearTokenFactory_;
+    INearProver public prover;
+    bytes public nearEthFactory;
 
     // OutcomeReciptId -> Used
     mapping(bytes32 => bool) public usedEvents_;
@@ -22,7 +22,7 @@ contract Locker {
         uint64 proofBlockHeight,
         bool isUsing
     ) internal returns (ProofDecoder.ExecutionStatus memory result) {
-        require(prover_.proveOutcome(proofData, proofBlockHeight), 'Proof should be valid');
+        require(prover.proveOutcome(proofData, proofBlockHeight), 'Proof should be valid');
 
         // Unpack the proof and extract the execution outcome.
         Borsh.Data memory borshData = Borsh.from(proofData);
@@ -37,8 +37,7 @@ contract Locker {
         }
 
         require(
-            keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id) ==
-                keccak256(nearTokenFactory_),
+            keccak256(fullOutcomeProof.outcome_proof.outcome_with_id.outcome.executor_id) == keccak256(nearEthFactory),
             'Can only unlock tokens from the linked mintable fungible token on Near blockchain.'
         );
 
