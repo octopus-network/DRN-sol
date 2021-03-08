@@ -41,13 +41,16 @@ Everytime a relayer invokes `claimRewards()` in NearRelayDispatcher.sol, the `di
 3. When `unlock` be invoked, there are two situations. If the balance of Locker is sufficient, the user will get all his ethers back. Or, the locker will calculate the safe amount as withdrawable to transfer to user, and the rest amount is recorded as debt.
 
    Formula to calculate the amount that can be withdrawn in an unlocking:
-   $$
+
+   ```
    withdrawableBalance = lockerBalance - minReserveRatio * (lockedEth - unlockAmount)
-   $$
+   ```
+
    According to this formula, after each unlock, it always meets the condition:
-   $$
-   reserveBalance>=minReserveRatio * lockedEth
-   $$
+
+   ```
+   reserveBalance >= minReserveRatio * lockedEth
+   ```
 
 4. When debt is created, event `DebtCreated`  will be emitted. RainbowDao can issue a instruction to withdraw funds from the investment contracts or deposit to the locker directly. After that, the user can `claim()` and get rest ethers back.
 
