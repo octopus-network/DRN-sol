@@ -24,13 +24,13 @@ contract NearRelayDispatcher {
     IEthLocker public ethLocker;
     IRelayRegistry public relayRegistry;
 
-    uint64 totalScore;
-    uint256 lastClaimAt;
+    uint256 scoringStartAt;
     uint256 public claimPeriod;
     uint256 public fairGasPrice;
 
     mapping(bytes32 => uint256) public commitAtByNearHash;
-    mapping(address => uint64) public scoreOf;
+    mapping(uint256 => uint64) public totalScore;
+    mapping(uint256 => mapping(address => uint64)) public scoreOf;
     mapping(bytes32 => bool) public usedEvents;
 
     uint64 HIGH_SCORE = 50000;
@@ -45,7 +45,7 @@ contract NearRelayDispatcher {
         prover = defaultProver;
         nearRainbowDao = defaultNearRainbowDao;
         claimPeriod = defaultClaimPeriod;
-        lastClaimAt = block.number;
+        scoringStartAt = block.number;
     }
 
     // It doesn't need to use SafeMath here.
@@ -100,9 +100,10 @@ contract NearRelayDispatcher {
     }
 
     function claimRewards() public shouldRefundGasFee {
-        require(block.number - lastClaimAt > claimPeriod, 'Should wait');
+        require(block.number - scoringStartAt > claimPeriod, 'Should wait');
         ethLocker.transferRewards(address(relayRegistry));
         relayRegistry.distributeRewards();
+        scoringStartAt = block.number;
         emit RewardsClaimed();
     }
 
@@ -150,8 +151,8 @@ contract NearRelayDispatcher {
         uint64 score
     ) private {
         require(relayRegistry.isRelayer(targetAddr), 'Must be a relayer.');
-        scoreOf[targetAddr] += score;
-        totalScore += score;
+        scoreOf[scoringStartAt][targetAddr] += score;
+        totalScore[scoringStartAt] += score;
         emit RelayLog(hash, height, targetAddr, score);
     }
 

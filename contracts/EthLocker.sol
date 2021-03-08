@@ -55,7 +55,7 @@ contract EthLocker is Locker {
     }
 
     // Fundamental
-    function setDispatcher(address targetAddr) public {
+    function initDispatcher(address targetAddr) public {
         if (dispatcherAddr == address(0)) {
             dispatcherAddr = targetAddr;
         }

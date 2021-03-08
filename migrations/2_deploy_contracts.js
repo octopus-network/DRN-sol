@@ -16,11 +16,11 @@ module.exports = async function (deployer, network, accounts) {
   // const ethLocker = await EthLocker.deployed();
 
   // const rStakingRequired = toWei('5', 'ether');
-  // const rRelayerNumLimit = 12; // 12 relayers
+  // const rrelayerLengthLimit = 12; // 12 relayers
   // const rFreezingPeriod = 6500 * 2; // About 2 days
   // const rRewardsRatio = 2;
   // const rMinScoreRatio = 30; // 30%
-  // await deployer.deploy(RelayRegistry, rStakingRequired, rRelayerNumLimit, rFreezingPeriod, rRewardsRatio, rMinScoreRatio);
+  // await deployer.deploy(RelayRegistry, rStakingRequired, rrelayerLengthLimit, rFreezingPeriod, rRewardsRatio, rMinScoreRatio);
   // const relayRegistry = await RelayRegistry.deployed();
 
   //   const nRainbowDao = Buffer.from('rainbowdao', 'utf-8');
@@ -34,7 +34,7 @@ module.exports = async function (deployer, network, accounts) {
   //     relayRegistry.address
   //   );
 
-  //   await ethLocker.setDispatcher(nearRelayDispatcher.address);
-  //   await relayRegistry.setDispatcher(nearRelayDispatcher.address);
+  //   await ethLocker.initDispatcher(nearRelayDispatcher.address);
+  //   await relayRegistry.initDispatcher(nearRelayDispatcher.address);
   // }
 };

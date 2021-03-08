@@ -83,18 +83,18 @@ contract('DRN', function ([_, addr1, addr2]) {
     ethLocker = await EthLocker.new(lNearEthFactory, nearProver.address, lReserveRatio, lMinReserveRatio, lRewardsRatio);
 
     const rStakingRequired = toWei('5', 'ether'); // 5eth required for staking
-    const rRelayerNumLimit = 12; // 12 relayers
+    const rrelayerLengthLimit = 12; // 12 relayers
     const rFreezingPeriod = 6500 * 2; // About 2 days
     const rRewardsRatio = 2;
     const rMinScoreRatio = 30; // 30%
-    relayRegistry = await RelayRegistry.new(rStakingRequired, rFreezingPeriod, rRelayerNumLimit, rRewardsRatio, rMinScoreRatio);
+    relayRegistry = await RelayRegistry.new(rStakingRequired, rFreezingPeriod, rrelayerLengthLimit, rRewardsRatio, rMinScoreRatio);
 
     const nRainbowDao = Buffer.from(RAINBOW_DAO, 'utf-8');
     const nClaimPeriod = 6500 * 7; // About 7 days
     dispatcher = await NearRelayDispatcher.new(nearProver.address, nRainbowDao, nClaimPeriod);
 
-    await ethLocker.setDispatcher(dispatcher.address);
-    await relayRegistry.setDispatcher(dispatcher.address);
+    await ethLocker.initDispatcher(dispatcher.address);
+    await relayRegistry.initDispatcher(dispatcher.address);
   });
 
   it('initRelativeContracts on dispatcher', async function () {

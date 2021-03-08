@@ -18,7 +18,7 @@ contract RelayRegistry {
     uint256 public stakingRequired;
     uint256 public freezingPeriod;
     address[] public relayerList;
-    uint256 public relayerNumLimit;
+    uint256 public relayerLengthLimit;
     // 10000 for 100.00%
     uint16 public rewardsRatio;
     uint16 public minScoreRatio;
@@ -32,13 +32,13 @@ contract RelayRegistry {
 
     constructor(
         uint256 defaultStakingRequired,
-        uint256 defaultRelayerNumLimit,
+        uint256 defaultrelayerLengthLimit,
         uint256 defaultFreezingPeriod,
         uint16 defaultRewardsRatio,
         uint16 defaultMinScoreRatio
     ) public {
         stakingRequired = defaultStakingRequired;
-        relayerNumLimit = defaultRelayerNumLimit;
+        relayerLengthLimit = defaultrelayerLengthLimit;
         freezingPeriod = defaultFreezingPeriod;
         rewardsRatio = defaultRewardsRatio;
         minScoreRatio = defaultMinScoreRatio;
@@ -77,7 +77,7 @@ contract RelayRegistry {
         return roleMap[targetAddr] == ROLE_CANDIDATE;
     }
 
-    function setDispatcher(address targetAddr) public {
+    function initDispatcher(address targetAddr) public {
         if (dispatcherAddr == address(0)) {
             dispatcherAddr = targetAddr;
         }
@@ -121,7 +121,7 @@ contract RelayRegistry {
         msg.sender.transfer(amount);
     }
 
-    function withdrawAll() public payable {
+    function withdrawAll() public {
         msg.sender.transfer(balanceOf[msg.sender]);
     }
 
@@ -129,8 +129,8 @@ contract RelayRegistry {
         stakingRequired = value;
     }
 
-    function setRelayerNumLimit(uint256 value) public onlyDispatcher {
-        relayerNumLimit = value;
+    function setrelayerLengthLimit(uint256 value) public onlyDispatcher {
+        relayerLengthLimit = value;
     }
 
     function setRewardsRatio(uint16 value) public onlyDispatcher {
@@ -144,10 +144,11 @@ contract RelayRegistry {
     function distributeRewards() public onlyDispatcher {
         INearRelayDispatcher dispatcher = INearRelayDispatcher(dispatcherAddr);
         uint256 totalRewards = address(this).balance.mul(rewardsRatio);
-        uint32 totalScore = dispatcher.totalScore();
+        uint256 scoringStartAt = dispatcher.scoringStartAt();
+        uint64 totalScore = dispatcher.totalScore(scoringStartAt);
         for (uint256 i = 0; i < relayerList.length; i++) {
             address relayerAddr = relayerList[i];
-            uint32 score = dispatcher.scoreOf(relayerAddr);
+            uint64 score = dispatcher.scoreOf(scoringStartAt, relayerAddr);
             uint256 averageScore = uint256(totalScore).div(relayerList.length);
             uint256 minScore = averageScore.mul(minScoreRatio).div(10000);
             if (uint256(score).div(totalScore) < minScore) {
@@ -169,7 +170,7 @@ contract RelayRegistry {
     }
 
     function _addRelayer(address tragetAddr) private returns (bool) {
-        if (relayerList.length < relayerNumLimit) {
+        if (relayerList.length < relayerLengthLimit) {
             relayerList.push(tragetAddr);
             roleMap[tragetAddr] = ROLE_RELAYER;
             emit Listed(tragetAddr, ROLE_RELAYER);
