@@ -20,12 +20,12 @@ DRN-sol is a set of Ethereum Smart Contracts that use idle funds in the locker t
 
 #### Work process
 
-Everytime a relayer invokes `claimRewards()` in NearRelayDispatcher.sol, the `distributeRewards()` will be used. It will count all their contributions in the past period of time, and therefore determine the amount of rewards distributed and whether to slash.
+Everytime a relayer invokes `claimRewards()` in NearRelayDispatcher.sol, the `distributeRewards()` will be used. It will count all their contributions in the past period of time, and therefore determines the amount of rewards distributed and whether to slash.
 
 #### Quit process
 
-1. If a candidate invokes `quit()` , his staking assets will move to his balance, so he can `withdraw(uint256 amount)` or `withdrawAll()`.
-2. If a relayer invokes `quit()` , he will be delisted immediately, but his staking assets will be frozen for `freezingPeriod`. If he did'nt be slashed in that period, then he can invoke `unfreezingToBalance()` to move the staking assets to his balance.
+1. If a candidate invokes `quit()` , his staking assets will be moved to his balance, so he can `withdraw(uint256 amount)` or `withdrawAll()`.
+2. If a relayer invokes `quit()` , he will be delisted from relayers immediately, but his staking assets will be frozen for a `freezingPeriod`. If he did'nt be slashed in that period, he can invoke `unfreezingToBalance()` to move the staking assets to his balance then.
 3. Everyone can `withdraw(uint256 amount)` or `withdrawAll()`  their balance.
 
 
@@ -34,11 +34,11 @@ Everytime a relayer invokes `claimRewards()` in NearRelayDispatcher.sol, the `di
 
 #### Lock and unlock process
 
-1. Anyone can lock eth by sending `ethLocker.lockEth()` with ethers that wants to transfer to near.
+1. Anyone can lock eth by sending `ethLocker.lockEth()` with ethers that wants to transfer to near. After that, event `Lock` will be emitted, which can be used for minting ethers on Near.
 
 2. When users want to unlock their ethers, they can use the proof data from Near and invoke `ethLocker.unlock(bytes proof)` to achieve that.
 
-3. When `unlock` be invoked, there are two situations. If the balance of Locker is sufficient, the user will get all his ethers back. Or, the locker will calculate the safe amount as withdrawable to transfer to user, and the rest amount is recorded as debt.
+3. When `unlock` be invoked, there are two situations. If the balance of Locker is sufficient, the user will get all his ethers back. Or the locker will calculate the safe amount as withdrawable to transfer to user, and the rest amount is recorded as the debt.
 
    Formula to calculate the amount that can be withdrawn in an unlocking:
 
@@ -52,11 +52,11 @@ Everytime a relayer invokes `claimRewards()` in NearRelayDispatcher.sol, the `di
    reserveBalance >= minReserveRatio * lockedEth
    ```
 
-4. When debt is created, event `DebtCreated`  will be emitted. RainbowDao can issue a instruction to withdraw funds from the investment contracts or deposit to the locker directly. After that, the user can `claim()` and get rest ethers back.
+4. When debt is created, event `DebtCreated`  will be emitted. RainbowDao can issue an instruction to withdraw funds from the investment contracts or deposit to the locker directly. After that, the user can `claim()` and get rest ethers back.
 
 #### Investment process
 
-RainbowDao can issue a instruction to call `depositToStrategy(address strategyAddr, uint256 amount)` , which is used to invest in the strategies, or call `withdrawFromStrategy(address strategyAddr, uint256 amount)` for redemption.
+RainbowDao can issue an instruction to call `depositToStrategy(address strategyAddr, uint256 amount)` , which is used to invest in the strategies, or call `withdrawFromStrategy(address strategyAddr, uint256 amount)` for redemption.
 
 #### Transfer rewards process
 
