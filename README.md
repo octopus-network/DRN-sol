@@ -15,7 +15,7 @@ DRN-sol is a set of Ethereum Smart Contracts that use idle funds in the locker t
 #### Registration process
 
 1. Anyone can register as a relayer by sending `relayRegistry.register()` with ethers that `stakingRequired`.
-2. If relayerList reaches the `relayerLengthLimit`, the registrant will be listed in the candidates, or he will be one of relayers.
+2. If relayerList reaches the `relayerLengthLimit`, the registrant will be a candidate, or he will be listed as a relayer.
 3. Candidates can invoke `activate()` to become a relayer when they find the `relayerList.length` is less than `relayerLengthLimit`.
 
 #### Work process
@@ -94,3 +94,5 @@ cd DRN-sol
 yarn
 truffle test
 ```
+
+More test cases are being added...
